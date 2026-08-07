@@ -1,0 +1,6 @@
+node_modules/
+dist/
+android/
+.vite/
+.DS_Store
+*.log
