@@ -26,12 +26,13 @@ npm run preview
 
 ## Controls
 
-- Mouse/touch drag: steer toward the pointer
-- Joystick style: select in Settings, then steer from the left side
-- WASD / Arrow keys: desktop steering
-- Space: boost
-- Esc: pause/resume
-- Touch bottom-right boost area: boost; multi-touch steering + boost is supported
+- Mouse/touch: hold and drag anywhere in the arena; the snake continuously follows the live pointer/finger direction. Release to keep the exact heading you had at release.
+- Left / Right or A / D by themselves: steer continuously while held; release to hold the current heading.
+- WASD / Arrow combinations: directional desktop steering; release to hold the current heading.
+- Joystick style: optional in Settings; the floating joystick only appears while it is being used.
+- Space: boost.
+- Esc: pause/resume.
+- Touch bottom-right boost area: boost; multi-touch steering + boost is supported.
 
 ## Architecture
 

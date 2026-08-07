@@ -5,7 +5,7 @@ Use this route after `npm install && npm run dev`, then repeat against `npm run 
 - Startup: preload completes; main menu appears; no fatal console errors; music begins after first user interaction.
 - Main menu: cycle all three modes and arenas; open Skins, Shop, Missions, Daily, Settings, Stats and Credits; every Back action works.
 - Skins/shop: default skin equips; insufficient funds are rejected; affordable skin purchase deducts coins once; purchased skin equips and persists.
-- Gameplay: 3-2-1-GO; mouse/touch/keyboard steer; Space boosts; two-finger steer + bottom-right boost works; Esc/touch pause freezes simulation timers.
+- Gameplay: 3-2-1-GO; mouse/touch drag follows the live pointer; releasing preserves the current heading; keyboard steering stops rotating on release; Space boosts; two-finger steer + bottom-right boost works; Esc/touch pause freezes simulation timers.
 - Movement/body: continuous forward motion; no instant reversal; body follows smoothly; starting body is nine visible segments; large tab-resume delta does not jump the snake.
 - Growth/audio/VFX: food collects once; mass/body grow; camera zooms/look-ahead follows heading; pickup/growth SFX and lightweight pickup feedback trigger.
 - Combat: two-second active-play spawn protection prevents kills; larger snake can defeat smaller at the 1.05 threshold; death mass appears; kill/reward happens once; player death transitions once.
