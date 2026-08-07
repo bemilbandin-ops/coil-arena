@@ -3,7 +3,7 @@ import './styles/game.css';
 import { BootScene } from './game/scenes/BootScene';
 import { PreloadScene } from './game/scenes/PreloadScene';
 import { MainMenuScene } from './game/scenes/MainMenuScene';
-import { GameScene } from './game/scenes/GameScene';
+import { ComfortGameScene } from './game/scenes/ComfortGameScene';
 import { ResultsScene } from './game/scenes/ResultsScene';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -23,7 +23,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   fps: { target: 60, forceSetTimeOut: false },
   input: { activePointers: 2 },
-  scene: [BootScene, PreloadScene, MainMenuScene, GameScene, ResultsScene],
+  scene: [BootScene, PreloadScene, MainMenuScene, ComfortGameScene, ResultsScene],
 };
 
 new Phaser.Game(config);
