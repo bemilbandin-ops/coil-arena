@@ -8,22 +8,23 @@ import { ResultsScene } from './game/scenes/ResultsScene';
 
 const GAME_WIDTH = 1280;
 const GAME_HEIGHT = 720;
-const displayScale = Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
-const renderResolution = Math.min(2, Math.max(1, displayScale * (window.devicePixelRatio || 1)));
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
-  resolution: renderResolution,
   backgroundColor: '#0d1726',
   antialias: true,
   render: { antialias: true, pixelArt: false, roundPixels: false },
   scale: {
-    mode: Phaser.Scale.FIT,
+    // EXPAND resizes the actual canvas to the available display area instead of
+    // leaving a fixed 1280x720 backing buffer and stretching it with CSS.
+    // The game keeps its 1280x720 logical coordinate system, but menu text and
+    // small gameplay geometry are rendered with the real canvas pixel density.
+    mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    autoRound: true,
+    autoRound: false,
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
   },
