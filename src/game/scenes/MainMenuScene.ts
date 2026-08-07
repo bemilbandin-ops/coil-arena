@@ -5,7 +5,7 @@ import { claimDaily, claimMission, dailyAvailable, equipSkin, purchaseSkin, xpFo
 import { saveService } from '../services/SaveService';
 import { audioService } from '../services/AudioService';
 
-const UI_RESOLUTION = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+const UI_RESOLUTION = Math.min(2, Math.max(1, Math.min(window.innerWidth / 1280, window.innerHeight / 720) * (window.devicePixelRatio || 1)));
 const INK = '#f3f1e8';
 const MUTED = '#85939a';
 const ACID = '#c3f23f';
