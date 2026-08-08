@@ -5,28 +5,35 @@ import { PreloadScene } from './game/scenes/PreloadScene';
 import { MainMenuScene } from './game/scenes/MainMenuScene';
 import { ComfortGameScene } from './game/scenes/ComfortGameScene';
 import { ResultsScene } from './game/scenes/ResultsScene';
+import { RENDER_HEIGHT, RENDER_SCALE, RENDER_WIDTH } from './game/config/render';
 
-const GAME_WIDTH = 1280;
-const GAME_HEIGHT = 720;
+// Phaser Text renders to its own texture. Because the game camera is scaled 2x
+// to preserve the existing 1280x720 layout on a 2560x1440 backing canvas, every
+// text texture also needs 2x resolution or it would be enlarged and softened.
+const originalTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
+Phaser.GameObjects.GameObjectFactory.prototype.text = function (
+  x: number,
+  y: number,
+  text: string | string[],
+  style?: Phaser.Types.GameObjects.Text.TextStyle,
+): Phaser.GameObjects.Text {
+  return originalTextFactory.call(this, x, y, text, style).setResolution(RENDER_SCALE);
+};
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: GAME_WIDTH,
-  height: GAME_HEIGHT,
+  width: RENDER_WIDTH,
+  height: RENDER_HEIGHT,
   backgroundColor: '#0d1726',
   antialias: true,
   render: { antialias: true, pixelArt: false, roundPixels: false },
   scale: {
-    // EXPAND resizes the actual canvas to the available display area instead of
-    // leaving a fixed 1280x720 backing buffer and stretching it with CSS.
-    // The game keeps its 1280x720 logical coordinate system, but menu text and
-    // small gameplay geometry are rendered with the real canvas pixel density.
-    mode: Phaser.Scale.EXPAND,
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     autoRound: false,
-    width: GAME_WIDTH,
-    height: GAME_HEIGHT,
+    width: RENDER_WIDTH,
+    height: RENDER_HEIGHT,
   },
   fps: { target: 60, forceSetTimeOut: false },
   input: { activePointers: 2 },
