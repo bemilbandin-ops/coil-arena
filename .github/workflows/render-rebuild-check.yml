@@ -1,6 +1,9 @@
 name: Render rebuild check
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - agent/render-rebuild-verified
@@ -23,7 +26,7 @@ jobs:
         run: |
           npm install --no-save playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Launch preview and capture menu
+      - name: Launch preview and capture menu/gameplay
         run: |
           npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/coil-preview.log 2>&1 &
           for i in {1..30}; do
@@ -36,19 +39,29 @@ jobs:
           const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
           await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
           await page.waitForTimeout(1500);
-          await page.screenshot({ path: 'render-check-menu.png', fullPage: true });
-          const canvas = await page.locator('canvas').evaluate(el => ({
+
+          const metrics = await page.locator('canvas').evaluate(el => ({
             width: el.width,
             height: el.height,
             cssWidth: el.getBoundingClientRect().width,
-            cssHeight: el.getBoundingClientRect().height
+            cssHeight: el.getBoundingClientRect().height,
+            left: el.getBoundingClientRect().left,
+            top: el.getBoundingClientRect().top
           }));
-          console.log('canvas metrics', canvas);
-          if (canvas.width !== 1280 || canvas.height !== 720) throw new Error(`Unexpected backing canvas ${canvas.width}x${canvas.height}`);
-          if (Math.abs(canvas.cssWidth / canvas.cssHeight - 16 / 9) > 0.01) throw new Error('Canvas aspect ratio changed');
+          console.log('canvas metrics', metrics);
+          if (metrics.width !== 1280 || metrics.height !== 720) throw new Error(`Unexpected backing canvas ${metrics.width}x${metrics.height}`);
+          if (Math.abs(metrics.cssWidth / metrics.cssHeight - 16 / 9) > 0.01) throw new Error('Canvas aspect ratio changed');
+          if (metrics.left < -1 || metrics.top < -1) throw new Error('Canvas is clipped outside the viewport');
+
+          await page.screenshot({ path: 'render-check-menu.png', fullPage: true });
+          await page.mouse.click(375, 780);
+          await page.waitForTimeout(4200);
+          await page.screenshot({ path: 'render-check-gameplay.png', fullPage: true });
           await browser.close();
           EOF
       - uses: actions/upload-artifact@v4
         with:
-          name: render-rebuild-menu
-          path: render-check-menu.png
+          name: render-rebuild-screenshots
+          path: |
+            render-check-menu.png
+            render-check-gameplay.png
