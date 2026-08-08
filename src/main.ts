@@ -47,7 +47,7 @@ function viewportScale(scene: Phaser.Scene): number {
   return Math.min(width / LOGICAL_WIDTH, height / LOGICAL_HEIGHT);
 }
 
-function applyLogicalViewport(scene: Phaser.Scene, logicalZoom = 1): void {
+function applyLogicalViewport(scene: Phaser.Scene, logicalZoom = 1, centerLogicalView = false): void {
   const { width, height } = scene.scale.gameSize;
   const fit = viewportScale(scene);
   const viewportWidth = LOGICAL_WIDTH * fit;
@@ -61,10 +61,20 @@ function applyLogicalViewport(scene: Phaser.Scene, logicalZoom = 1): void {
     Math.round(viewportHeight),
   );
   camera.setZoom(fit * logicalZoom);
+
+  // Phaser camera scroll values are expressed in unzoomed game pixels. When a
+  // large high-DPI viewport is zoomed down to the 1280x720 logical scene, leaving
+  // scroll at (0, 0) makes the camera look inward from the logical top-left.
+  // Static scenes should always frame the complete logical canvas instead.
+  if (centerLogicalView) camera.centerOn(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
 }
 
-function keepLogicalViewport(scene: Phaser.Scene, getLogicalZoom: () => number): void {
-  const resize = () => applyLogicalViewport(scene, getLogicalZoom());
+function keepLogicalViewport(
+  scene: Phaser.Scene,
+  getLogicalZoom: () => number,
+  centerLogicalView = false,
+): void {
+  const resize = () => applyLogicalViewport(scene, getLogicalZoom(), centerLogicalView);
   resize();
   scene.scale.on('resize', resize);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.scale.off('resize', resize));
@@ -72,7 +82,7 @@ function keepLogicalViewport(scene: Phaser.Scene, getLogicalZoom: () => number):
 
 class NativePreloadScene extends PreloadScene {
   preload(): void {
-    applyLogicalViewport(this);
+    applyLogicalViewport(this, 1, true);
     super.preload();
   }
 }
@@ -80,14 +90,14 @@ class NativePreloadScene extends PreloadScene {
 class NativeMainMenuScene extends MainMenuScene {
   create(): void {
     super.create();
-    keepLogicalViewport(this, () => 1);
+    keepLogicalViewport(this, () => 1, true);
   }
 }
 
 class NativeResultsScene extends ResultsScene {
   create(): void {
     super.create();
-    keepLogicalViewport(this, () => 1);
+    keepLogicalViewport(this, () => 1, true);
   }
 }
 
@@ -109,6 +119,8 @@ class NativeGameScene extends ComfortGameScene {
       this.cameras.main.setFollowOffset(0, 0);
     };
 
+    // Gameplay owns camera centering through startFollow(), so don't force the
+    // logical center here. Only keep its high-DPI viewport and zoom in sync.
     keepLogicalViewport(this, () => logicalZoom);
   }
 }
