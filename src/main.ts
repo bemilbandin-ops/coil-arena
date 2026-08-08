@@ -13,11 +13,28 @@ import {
   bindStaticViewport,
 } from './game/render/Viewport';
 
-// Phaser Text is rendered to an internal texture. The presentation camera may
-// enlarge logical text to native pixels, so keep those textures comfortably
-// above the maximum common desktop fit scale instead of enlarging a 1x glyph.
-const displayFit = Math.min(window.innerWidth / LOGICAL_WIDTH, window.innerHeight / LOGICAL_HEIGHT);
-const TEXT_RESOLUTION = Math.min(3, Math.max(2, window.devicePixelRatio || 1, displayFit));
+function renderPixelRatio(): number {
+  return Math.max(1, window.devicePixelRatio || 1);
+}
+
+function displaySize(): { width: number; height: number } {
+  const container = document.getElementById('game-container');
+  return {
+    width: Math.max(1, container?.clientWidth || window.innerWidth),
+    height: Math.max(1, container?.clientHeight || window.innerHeight),
+  };
+}
+
+const initialDisplaySize = displaySize();
+const initialPixelRatio = renderPixelRatio();
+const initialBackingWidth = Math.max(1, Math.round(initialDisplaySize.width * initialPixelRatio));
+const initialBackingHeight = Math.max(1, Math.round(initialDisplaySize.height * initialPixelRatio));
+const initialBackingFit = Math.min(initialBackingWidth / LOGICAL_WIDTH, initialBackingHeight / LOGICAL_HEIGHT);
+
+// Phaser Text is rendered into its own texture before the camera scales it.
+// Match that texture detail to the actual physical-pixel camera scale so glyphs
+// are never enlarged from a lower-resolution text texture.
+const TEXT_RESOLUTION = Math.min(6, Math.max(2, Math.ceil(initialBackingFit)));
 const originalTextResolution = Phaser.GameObjects.Text.prototype.setResolution;
 Phaser.GameObjects.Text.prototype.setResolution = function (value: number): Phaser.GameObjects.Text {
   return originalTextResolution.call(this, Math.max(value, TEXT_RESOLUTION));
@@ -63,8 +80,8 @@ class PresentationGameScene extends ComfortGameScene {
       updateCamera(): void;
     };
 
-    // Keep one stable logical 1280x720 world view. Dynamic fractional zoom was
-    // resampling the smallest gameplay objects and screen-space HUD every frame.
+    // Keep gameplay on one stable camera scale. The only scale applied is the
+    // logical 1280x720 -> physical backing-buffer transform in Viewport.ts.
     runtime.updateCamera = () => {
       if (!runtime.player.alive) return;
       applyGameplayViewport(this);
@@ -77,18 +94,21 @@ class PresentationGameScene extends ComfortGameScene {
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: LOGICAL_WIDTH,
-  height: LOGICAL_HEIGHT,
+
+  // The canvas backing store is physical-pixel sized. ScaleManager zoom only
+  // controls its CSS box, so one backing pixel maps to one device pixel on a
+  // normal high-DPI display instead of letting the browser enlarge a CSS-sized
+  // canvas after Phaser has rendered it.
+  width: initialBackingWidth,
+  height: initialBackingHeight,
   backgroundColor: '#0d1726',
   antialias: true,
   render: { antialias: true, pixelArt: false, roundPixels: false },
   scale: {
-    // RESIZE makes the backing canvas match the available browser pixels. Scene
-    // cameras map existing 1280x720 coordinates into a centered 16:9 viewport;
-    // there is no final CSS stretch of a 1280x720 backing buffer.
-    mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.NO_CENTER,
-    autoRound: true,
+    mode: Phaser.Scale.NONE,
+    zoom: 1 / initialPixelRatio,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    autoRound: false,
   },
   fps: { target: 60, forceSetTimeOut: false },
   input: { activePointers: 2 },
@@ -101,4 +121,29 @@ const config: Phaser.Types.Core.GameConfig = {
   ],
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+function syncPhysicalBackingBuffer(): void {
+  const pixelRatio = renderPixelRatio();
+  const size = displaySize();
+  const backingWidth = Math.max(1, Math.round(size.width * pixelRatio));
+  const backingHeight = Math.max(1, Math.round(size.height * pixelRatio));
+  const cssZoom = 1 / pixelRatio;
+  const scale = game.scale;
+
+  const zoomChanged = Math.abs(scale.zoom - cssZoom) > 0.0001;
+  const sizeChanged = scale.gameSize.width !== backingWidth || scale.gameSize.height !== backingHeight;
+
+  if (zoomChanged) scale.setZoom(cssZoom);
+  if (sizeChanged) scale.resize(backingWidth, backingHeight);
+}
+
+window.addEventListener('resize', syncPhysicalBackingBuffer, { passive: true });
+
+const gameContainer = document.getElementById('game-container');
+if (gameContainer && typeof ResizeObserver !== 'undefined') {
+  const resizeObserver = new ResizeObserver(syncPhysicalBackingBuffer);
+  resizeObserver.observe(gameContainer);
+}
+
+window.requestAnimationFrame(syncPhysicalBackingBuffer);
