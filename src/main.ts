@@ -10,6 +10,21 @@ const LOGICAL_WIDTH = 1280;
 const LOGICAL_HEIGHT = 720;
 const TEXT_RESOLUTION = Math.max(2, window.devicePixelRatio || 1);
 
+function renderPixelRatio(): number {
+  return Math.max(1, window.devicePixelRatio || 1);
+}
+
+function displaySize(): { width: number; height: number } {
+  const container = document.getElementById('game-container');
+  return {
+    width: Math.max(1, container?.clientWidth || window.innerWidth),
+    height: Math.max(1, container?.clientHeight || window.innerHeight),
+  };
+}
+
+const initialDisplaySize = displaySize();
+const initialPixelRatio = renderPixelRatio();
+
 // Text is rendered into its own texture. Keep those textures high-resolution even
 // when the camera scales the logical 1280x720 layout up to the native canvas.
 const originalTextResolution = Phaser.GameObjects.Text.prototype.setResolution;
@@ -101,22 +116,48 @@ class NativeGameScene extends ComfortGameScene {
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: LOGICAL_WIDTH,
-  height: LOGICAL_HEIGHT,
+  // Phaser 4 renders the canvas backing store at the configured game size. Keep
+  // that backing store at physical-device resolution, then shrink only the CSS
+  // display size through ScaleManager zoom. Camera coordinates stay logical.
+  width: Math.round(initialDisplaySize.width * initialPixelRatio),
+  height: Math.round(initialDisplaySize.height * initialPixelRatio),
   backgroundColor: '#0d1726',
   antialias: true,
   render: { antialias: true, pixelArt: false, roundPixels: false },
   scale: {
-    // RESIZE changes the canvas itself to the available area. The camera then
-    // maps the existing 1280x720 game coordinates into a centered 16:9 viewport.
-    // This avoids FIT's CSS stretching while preserving every existing layout.
-    mode: Phaser.Scale.RESIZE,
+    mode: Phaser.Scale.NONE,
+    zoom: 1 / initialPixelRatio,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    autoRound: true,
+    autoRound: false,
   },
   fps: { target: 60, forceSetTimeOut: false },
   input: { activePointers: 2 },
   scene: [BootScene, NativePreloadScene, NativeMainMenuScene, NativeGameScene, NativeResultsScene],
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+function syncHighDpiBackingBuffer(): void {
+  const pixelRatio = renderPixelRatio();
+  const size = displaySize();
+  const backingWidth = Math.max(1, Math.round(size.width * pixelRatio));
+  const backingHeight = Math.max(1, Math.round(size.height * pixelRatio));
+  const cssZoom = 1 / pixelRatio;
+  const scale = game.scale;
+
+  const zoomChanged = Math.abs(scale.zoom - cssZoom) > 0.0001;
+  const sizeChanged = scale.gameSize.width !== backingWidth || scale.gameSize.height !== backingHeight;
+
+  if (zoomChanged) scale.setZoom(cssZoom);
+  if (sizeChanged) scale.resize(backingWidth, backingHeight);
+}
+
+window.addEventListener('resize', syncHighDpiBackingBuffer, { passive: true });
+
+const gameContainer = document.getElementById('game-container');
+if (gameContainer && typeof ResizeObserver !== 'undefined') {
+  const resizeObserver = new ResizeObserver(syncHighDpiBackingBuffer);
+  resizeObserver.observe(gameContainer);
+}
+
+window.requestAnimationFrame(syncHighDpiBackingBuffer);
