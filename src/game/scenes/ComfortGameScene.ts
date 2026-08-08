@@ -86,20 +86,19 @@ export class ComfortGameScene extends GameScene {
       return false;
     };
 
-    // Stable, centered camera. No directional look-ahead and only a small,
-    // slowly-changing zoom range as the snake grows.
+    // Keep world geometry at a stable 1:1 logical camera zoom. The previous
+    // continuously changing fractional zoom softened small food circles and made
+    // their edges shimmer while moving.
     runtime.updateCamera = () => {
       if (!runtime.player.alive) return;
-      const target = Phaser.Math.Clamp(1.01 - Math.sqrt(runtime.player.mass) * 0.005, 0.86, 0.99);
-      this.cameras.main.setZoom(Phaser.Math.Linear(this.cameras.main.zoom, target, 0.012));
+      if (this.cameras.main.zoom !== 1) this.cameras.main.setZoom(1);
       this.cameras.main.setFollowOffset(0, 0);
     };
 
     super.create();
 
-    // Follow more tightly so the scenery does not drift around the player.
     this.cameras.main.startFollow(runtime.player.head, true, 0.22, 0.22);
     this.cameras.main.setFollowOffset(0, 0);
-    this.cameras.main.setZoom(0.98);
+    this.cameras.main.setZoom(1);
   }
 }
