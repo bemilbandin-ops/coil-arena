@@ -1,5 +1,0 @@
-export const LOGICAL_WIDTH = 1280;
-export const LOGICAL_HEIGHT = 720;
-export const RENDER_SCALE = 2;
-export const RENDER_WIDTH = LOGICAL_WIDTH * RENDER_SCALE;
-export const RENDER_HEIGHT = LOGICAL_HEIGHT * RENDER_SCALE;
