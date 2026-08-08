@@ -1,0 +1,69 @@
+name: Render rebuild check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Install browser for visual smoke test
+        run: |
+          npm install --no-save playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Launch preview and capture menu/gameplay
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/coil-preview.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:4173 >/dev/null && break
+            sleep 1
+          done
+          node --input-type=module <<'EOF'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+          await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
+          await page.waitForTimeout(1500);
+
+          const metrics = await page.locator('canvas').evaluate(el => ({
+            width: el.width,
+            height: el.height,
+            cssWidth: el.getBoundingClientRect().width,
+            cssHeight: el.getBoundingClientRect().height,
+            left: el.getBoundingClientRect().left,
+            top: el.getBoundingClientRect().top
+          }));
+          console.log('canvas metrics', metrics);
+          if (metrics.width !== 1280 || metrics.height !== 720) throw new Error(`Unexpected backing canvas ${metrics.width}x${metrics.height}`);
+          if (Math.abs(metrics.cssWidth / metrics.cssHeight - 16 / 9) > 0.01) throw new Error('Canvas aspect ratio changed');
+          if (metrics.left < -1 || metrics.top < -1) throw new Error('Canvas is clipped outside the viewport');
+
+          await page.screenshot({ path: 'render-check-menu.png', fullPage: true });
+          const canvasBox = await page.locator('canvas').boundingBox();
+          if (!canvasBox) throw new Error('Canvas missing');
+          // PLAY button is centered at logical x=251, y=520. Translate through FIT.
+          const sx = canvasBox.width / 1280;
+          const sy = canvasBox.height / 720;
+          await page.mouse.click(canvasBox.x + 251 * sx, canvasBox.y + 520 * sy);
+          await page.waitForTimeout(4200);
+          await page.screenshot({ path: 'render-check-gameplay.png', fullPage: true });
+          await browser.close();
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: render-rebuild-screenshots
+          path: |
+            render-check-menu.png
+            render-check-gameplay.png
