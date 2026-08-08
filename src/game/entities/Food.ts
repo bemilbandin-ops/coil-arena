@@ -39,7 +39,7 @@ export class FoodOrb implements SpatialItem {
     this.view.setVisible(false).setActive(false).setPosition(-9999,-9999).setScale(1);
   }
 
-  animate(): void {
+  animate(_time:number): void {
     // No scale animation. Pulsing a 5-10 px circle through fractional scales makes
     // its edge shimmer and read as blur while the camera is moving.
     if (this.active && this.view.scaleX !== 1) this.view.setScale(1);
