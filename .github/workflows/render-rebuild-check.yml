@@ -4,9 +4,6 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    branches:
-      - agent/render-rebuild-verified
 
 jobs:
   validate:
@@ -54,7 +51,11 @@ jobs:
           if (metrics.left < -1 || metrics.top < -1) throw new Error('Canvas is clipped outside the viewport');
 
           await page.screenshot({ path: 'render-check-menu.png', fullPage: true });
-          await page.mouse.click(375, 780);
+          const canvasBox = await page.locator('canvas').boundingBox();
+          if (!canvasBox) throw new Error('Canvas missing');
+          const sx = canvasBox.width / 1280;
+          const sy = canvasBox.height / 720;
+          await page.mouse.click(canvasBox.x + 251 * sx, canvasBox.y + 520 * sy);
           await page.waitForTimeout(4200);
           await page.screenshot({ path: 'render-check-gameplay.png', fullPage: true });
           await browser.close();
