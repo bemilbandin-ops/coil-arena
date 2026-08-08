@@ -1,0 +1,54 @@
+name: Render rebuild check
+
+on:
+  push:
+    branches:
+      - agent/render-rebuild-verified
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Install browser for visual smoke test
+        run: |
+          npm install --no-save playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Launch preview and capture menu
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/coil-preview.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:4173 >/dev/null && break
+            sleep 1
+          done
+          node --input-type=module <<'EOF'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+          await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
+          await page.waitForTimeout(1500);
+          await page.screenshot({ path: 'render-check-menu.png', fullPage: true });
+          const canvas = await page.locator('canvas').evaluate(el => ({
+            width: el.width,
+            height: el.height,
+            cssWidth: el.getBoundingClientRect().width,
+            cssHeight: el.getBoundingClientRect().height
+          }));
+          console.log('canvas metrics', canvas);
+          if (canvas.width !== 1280 || canvas.height !== 720) throw new Error(`Unexpected backing canvas ${canvas.width}x${canvas.height}`);
+          if (Math.abs(canvas.cssWidth / canvas.cssHeight - 16 / 9) > 0.01) throw new Error('Canvas aspect ratio changed');
+          await browser.close();
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: render-rebuild-menu
+          path: render-check-menu.png
